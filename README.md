@@ -9,17 +9,9 @@ knitr::opts_chunk$set(echo = TRUE)
 Load stats packages
 ```{r}
 library(Amelia)
-```
-
-
-Load up PHQ-9 and GAD-7 Data
-```{r}
-PHQ9Base = read.spss("S:/Indiana Research & Evaluation/Indiana Connections/Data/PHQ9/PHQ9 Baseline.sav", to.data.frame = TRUE)
-PHQ96month = read.spss("S:/Indiana Research & Evaluation/Indiana Connections/Data/PHQ9/PHQ9 6 Month.sav", to.data.frame = TRUE)
-PHQ9All = merge(PHQ9Base, PHQ96month, by = "ParticipantID", all = TRUE)
-GAD7Base = read.spss("S:/Indiana Research & Evaluation/Indiana Connections/Data/GAD7/GAD7 Baseline.sav", to.data.frame = TRUE)
-GAD76month = read.spss("S:/Indiana Research & Evaluation/Indiana Connections/Data/GAD7/GAD7 6 Month.sav", to.data.frame = TRUE)
-GAD7All = merge(GAD7Base, GAD76month, by = "ParticipantID", all = TRUE)
+library(prettyR)
+library(nlme)
+library(descr)
 ```
 Load up the GPRA data and get the measures that Jon is interested in, the intake, 6-month, and housing variables.  
 ```{r}
@@ -53,6 +45,16 @@ dim(ConnPaper)
 #summary(ConnPaperComplete)
 ConnGPRA = ConnPaper
 ```
+Load up PHQ-9 and GAD-7 Data
+```{r}
+PHQ9Base = read.spss("S:/Indiana Research & Evaluation/Indiana Connections/Data/PHQ9/PHQ9 Baseline.sav", to.data.frame = TRUE)
+PHQ96month = read.spss("S:/Indiana Research & Evaluation/Indiana Connections/Data/PHQ9/PHQ9 6 Month.sav", to.data.frame = TRUE)
+PHQ9All = merge(PHQ9Base, PHQ96month, by = "ParticipantID", all = TRUE)
+GAD7Base = read.spss("S:/Indiana Research & Evaluation/Indiana Connections/Data/GAD7/GAD7 Baseline.sav", to.data.frame = TRUE)
+GAD76month = read.spss("S:/Indiana Research & Evaluation/Indiana Connections/Data/GAD7/GAD7 6 Month.sav", to.data.frame = TRUE)
+GAD7All = merge(GAD7Base, GAD76month, by = "ParticipantID", all = TRUE)
+```
+
 Load PHQ9 and GAD7 into one data set with client ID.  Then put them together with the GPRA data and see how much is missing.
 ```{r}
 PHQ9Connections = data.frame(ClientID = PHQ9All$ParticipantID,PHQ9Base= PHQ9All$PHQ9Total.x, PHQ9Month6= PHQ9All$PHQ9Total.y)
@@ -63,11 +65,11 @@ PHQ9_GAD7 = merge(PHQ9Connections, GAD7Connections, by = "ClientID", all = TRUE)
 head(PHQ9_GAD7)
 ```
 
-Combine PHQ9 and GAD7, with interview data so we can exclude intake where no reassessment is due
+Combine PHQ9 and GAD7, with interview data so we can exclude intake where no reassessment is due and housing
 ```{r}
 PHQ9_GAD7 = merge(ConnPaper, PHQ9_GAD7, by = "ClientID", all = TRUE)
 dim(PHQ9_GAD7)
-PHQ9_GAD7 = data.frame(ClientID = PHQ9_GAD7$ClientID, InterviewDate.x = PHQ9_GAD7$InterviewDate.x, PHQ9_GAD7[,23:30], )
+PHQ9_GAD7 = data.frame(ClientID = PHQ9_GAD7$ClientID, InterviewDate.x = PHQ9_GAD7$InterviewDate.x, LivingWhere.y= PHQ9_GAD7$LivingWhere.y, PHQ9_GAD7[,23:30])
 dim(PHQ9_GAD7)
 PHQ9_GAD7 = subset(PHQ9_GAD7, InterviewDate.x < "2018-02-01")
 dim(PHQ9_GAD7)
@@ -75,29 +77,73 @@ dim(PHQ9_GAD7)
 PHQ9_GAD7Complete = na.omit(PHQ9_GAD7)
 dim(PHQ9_GAD7Complete)
 1-(dim(PHQ9_GAD7Complete)[1]/(dim(PHQ9_GAD7)[1]))
-
 ```
+Look into the percentage of housing 
+```{r}
+describe.factor(PHQ9_GAD7$LivingWhere.y)
+PHQ9_GAD7$LivingWhere.y = ifelse(PHQ9_GAD7$LivingWhere.y == 4, 1, 0)
+describe.factor(PHQ9_GAD7$LivingWhere.y)
+```
+
+
 Put everything into long format for GPRA and PHQ9 and GAD7
 ```{r}
 ConnGPRA = reshape(ConnGPRA, varying = list(c("Depression.x", "Depression.y"), c("Anxiety.x", "Anxiety.y"), c("BrainFunction.x", "BrainFunction.y"), c("ViolentBehavior.x", "ViolentBehavior.y"), c("PhysicallyHurt.x", "PhysicallyHurt.y"), c("Employment.x", "Employment.y"), c("ArrestedDays.x", "ArrestedDays.y"), c("LivingWhere.x", "LivingWhere.y"), c("HealthStatus.x", "HealthStatus.y")), times = c(0,1), direction = "long")
 
 
-PHQ9_GAD7 = reshape(PHQ9_GAD7, varying = list(c("PHQ9Base", "PHQ9Month6"), c("GAD7Base", "GAD7Month6")), times = c(0,1), direction = "long")
+PHQ9_GAD7Long = reshape(PHQ9_GAD7, varying = list(c("PHQ9Base", "PHQ9Month6"), c("GAD7Base", "GAD7Month6")), times = c(0,1), direction = "long")
+PHQ9_GAD7$LivingWhere.y
 ```
-Ok look dichotomize the house variable
+Ok look dichotomize the house variable just trying the PHQ9 and GAD7 continous variable
+Then simple multilevel model 
 ```{r}
+PHQ9_GAD7AnalysisLong = na.omit(PHQ9_GAD7Long)
+write.csv(PHQ9_GAD7AnalysisLong, "PHQ9_GAD7AnalysisLong.csv", row.names = FALSE)
+PHQ9_GAD7AnalysisLong = read.csv("PHQ9_GAD7AnalysisLong.csv", header = TRUE)
+
+#Overall not big differences, but maybe bewteen 
+compmeans(PHQ9_GAD7AnalysisLong$PHQ9Base, PHQ9_GAD7AnalysisLong$time)
+compmeans(PHQ9_GAD7AnalysisLong$GAD7Base, PHQ9_GAD7AnalysisLong$time)
+
+modelPHQ9Multi = lme(PHQ9Base ~ LivingWhere.y*time, random = ~1 | ClientID, data = PHQ9_GAD7AnalysisLong)
+summary(modelPHQ9Multi)
+
+modelGAD7Multi = lme(GAD7Base ~ LivingWhere.y*time, random = ~1 | ClientID, data = PHQ9_GAD7AnalysisLong)
+summary(modelGAD7Multi)
 
 ```
-
-
-
-Ok maybe try with complete data just looking for those who were housed and not if there were changes across several outcomes
-PHQ9First
+Ok maybe try just a difference score with linear regression with PHQ9 and GAD-7
 ```{r}
-ConnPaperPHQ9 = data.frame(ClientID = ConnPaperAll$ClientID)
+PHQ9_GAD7DiffLin = PHQ9_GAD7
+PHQ9_GAD7DiffLin = na.omit(PHQ9_GAD7DiffLin)
+write.csv(PHQ9_GAD7DiffLin, "PHQ9_GAD7DiffLin.csv", row.names = FALSE)
+PHQ9_GAD7DiffLin = read.csv("PHQ9_GAD7DiffLin.csv", header = TRUE)
+
+t.test(PHQ9Diff ~ LivingWhere.y, data  =PHQ9_GAD7DiffLin)
+
+PHQ9_GAD7DiffLin$PHQ9Diff = PHQ9_GAD7DiffLin$PHQ9Month6-PHQ9_GAD7DiffLin$PHQ9Base
+
+hist(PHQ9_GAD7DiffLin$PHQ9Diff)
+
+modelPHQ9_GAD7DiffLin = lm(PHQ9Diff ~ LivingWhere.y, data = PHQ9_GAD7DiffLin)
+summary(modelPHQ9_GAD7DiffLin)
+
+
+### GAD7#### 
+
+GAD7_GAD7DiffLin = PHQ9_GAD7
+GAD7_GAD7DiffLin = na.omit(GAD7_GAD7DiffLin)
+write.csv(GAD7_GAD7DiffLin, "GAD7_GAD7DiffLin.csv", row.names = FALSE)
+GAD7_GAD7DiffLin = read.csv("GAD7_GAD7DiffLin.csv", header = TRUE)
+GAD7_GAD7DiffLin$GAD7Diff = GAD7_GAD7DiffLin$GAD7Month6-GAD7_GAD7DiffLin$GAD7Base
+hist(GAD7_GAD7DiffLin$GAD7Diff)
+compmeans(GAD7_GAD7DiffLin$GAD7Diff, GAD7_GAD7DiffLin$LivingWhere.y)
+t.test(GAD7Diff ~ LivingWhere.y, data  =GAD7_GAD7DiffLin)
+
+modelGAD7_GAD7DiffLin = lm(GAD7Diff ~ LivingWhere.y, data = GAD7_GAD7DiffLin)
+summary(modelGAD7_GAD7DiffLin)
 
 ```
-
 
 
 
@@ -128,3 +174,11 @@ dim(GPRAJonsCompleteInelig)
 
 #GPRAJons_House
 ```
+
+
+
+
+
+
+
+
