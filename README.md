@@ -20,7 +20,6 @@ library(BaylorEdPsych)
 library(ggplot2)
 library(HLMdiag)
 library(psych)
-library(stargazer)
 library(MuMIn)
 ```
 Loading the data and reading it in
@@ -162,6 +161,27 @@ dim(PHQ9_GAD7LongCompleteMonth6)[1]
 
 write.csv(PHQ9_GAD7Long, "PHQ9_GAD7Long.csv", row.names = FALSE)
 ```
+Just get the baseline
+```{r}
+head(PHQ9_GAD7)
+
+Conn_Base = PHQ9_GAD7[c("Depression.x", "Employment.x", "LivingWhere.y", "HealthStatus.x", "HealthStatus.y", "Age.x", "EducationYears.x", "Gender.x", "DAUseIllegDrugsDays.x", "County.x", "Depression.x", "Anxiety.x", "Depression.y", "Employment.y", "Anxiety.y", "DAUseIllegDrugsDays.y")]
+dim(Conn_Base)
+Conn_Base_complete = na.omit(Conn_Base)
+dim(Conn_Base_complete)
+
+logit_base = glm(LivingWhere.y ~ Depression.x + Depression.y +Employment.x + Employment.y + HealthStatus.x + HealthStatus.y + Age.x+EducationYears.x+ Gender.x + DAUseIllegDrugsDays.x +  DAUseIllegDrugsDays.y+ County.x  + Anxiety.x +Anxiety.y, family = "binomial",data = Conn_Base_complete)
+summary(logit_base)
+library(DescTools)
+PseudoR2(logit_base)
+
+test = summary(logit_base)
+
+exp(-1.901233)
+
+```
+
+
 
 Getting descriptives for baseline and 6-months later
 LivingWhere.x  Employment.x+ Depression.x + HealthStatus.x + Gender.x + EducationYears.x + Age.x + DAUseIllegDrugsDays.x + County.x 
@@ -191,27 +211,43 @@ PHQ9_GAD7LongComplete$AgeScaled.x = scale(PHQ9_GAD7LongComplete$Age.x, center = 
 ```
 ###Final Model####
 ```{r}
-model1 = glmer(LivingWhere.x ~ Employment.x+ Depression.x + HealthStatusScaled.x + Gender.x + EducationYears.x + AgeScaled.x + DAUseIllegDrugsDays.x + County.x  + (1 | ClientID), data  = PHQ9_GAD7LongComplete, family = "binomial")
+model1 = glmer(LivingWhere.x ~ Employment.x+ Depression.x + HealthStatus.x + Gender.x + EducationYears.x + Age.x + DAUseIllegDrugsDays.x + County.x  + (1 | ClientID), data  = PHQ9_GAD7LongComplete, family = "binomial")
 
+summary(model1)
 r.squaredGLMM(model1)
+test =  summary(model1)
+hist(test$residuals)
+range(test$residuals)
 
-
-
+install.packages("dfoptim")
+library(dfoptim)
+fm1.all <- allFit(model1)
+summary(fm1.all)
+ss <- summary(fm1.all)
+ss
+ss$which.OK
 model1Summary =  summary(model1)
 
+?convergence
 
 exp(confint.merMod(model1, parm = "beta_", method = "Wald"))
 
 ```
+Test interactions of time varying with time
+```{r}
+model_employ = glmer(LivingWhere.x ~ Employment.x+ Depression.x + HealthStatusScaled.x*time + Gender.x + EducationYears.x + AgeScaled.x + DAUseIllegDrugsDays.x + County.x  + (1 | ClientID), data  = PHQ9_GAD7LongComplete, family = "binomial")
+
+summary(model_employ)
+```
+
+
 Cannot get time in the model won't run right 
 ```{r}
 model1 = glmer(LivingWhere.x ~ Employment.x+ Depression.x + HealthStatusScaled.x + Gender.x + EducationYears.x + AgeScaled.x + DAUseIllegDrugsDays.x + County.x  + (1 | ClientID), data  = PHQ9_GAD7LongComplete, family = "binomial")
-
 summary(model1)
 
 
-model2 = glmer(LivingWhere.x ~ Employment.x+ Depression.x  + Gender.x  + AgeScaled.x  + County.x + time + (1 | ClientID), data  = PHQ9_GAD7LongComplete, family = "binomial")
-
+model2 = glmer(LivingWhere.x ~ Employment.x+ Depression.x  + Gender.x  + AgeScaled.x  + County.x + (1 | ClientID), data  = PHQ9_GAD7LongComplete, family = "binomial")
 summary(model2)
 
 
