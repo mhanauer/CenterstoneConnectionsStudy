@@ -23,15 +23,10 @@ library(psych)
 library(MuMIn)
 ```
 Loading the data and reading it in
-I am then subsetting the data for only those at baseline (InterviewType == 1) and 6 months (InterviewType == 2)
-Then I am merging those datasets together back into one data set
-Then I am writing and reading them back into R so I can set the missing values indicators
-Then I am transforming the both the interview dates into date formats that R can read
-Then I am getting rid of people who were housed at the start (LivingWhere.x == 4)
-Because when LivingWhere is 4 that is the only value indicating that people are housed.  Then I am changing both variables to 1 and 0 where 1 is when LivingWhere equals 4 and 0 otherwise
-Because when employment equals 1 that means that they are employed at all, I am making that one and all else zero
-I am subetting the gender variable where gender is greater than 2 is excluded, because there are not enough non male or female gender identities to run any statistics on
-Then for gender I am changing them to 1 for male and 0 for female
+Creating living where seperate to merge later from 6-month because I need to match the data and it is in wide form.
+Then get just baseline data for GPRA and code variables (double check my coding)
+Then grab all the variables that I want and put into a seperate data set, because if I na.omit whole data set it will result in no data.
+Then get rid of anyone who is not eligible for a 6-month to reduce missing data
 ```{r}
 setwd("S:/Indiana Research & Evaluation/Matthew Hanauer/ConnectionsPaperData")
 GPRAAll = read.csv("ConnGPRA.csv", header = TRUE, na.strings = c(-9, -8, -7, -1, "", " ", "NULL", NULL, NA, "NA")) 
