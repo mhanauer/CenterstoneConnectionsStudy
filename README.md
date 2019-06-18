@@ -135,16 +135,19 @@ describe.factor(Conn_Base_complete$Hospital)
 Now run the model
 ```{r}
 library(MCMCpack)
+library(rstanarm)
 head(Conn_Base_complete)
-bayes_logit_model = MCMClogit(LivingWhere_follow~ ., data = Conn_Base_complete)
-summary(bayes_logit_model)
-
-sum_model_bayes = summary(bayes_logit_model)
-quant_exp= exp(sum_model_bayes$quantiles)
-quant_exp
+bayes_logit_model = stan_glm(LivingWhere_follow~ ., data = Conn_Base_complete)
+bayes_sum =round(bayes_logit_model$stan_summary[,c(1,3,4,10, 11)],4)
+bayes_sum = round(data.frame(bayes_sum[,1:2], odd_ratio = exp(bayes_sum[,1]), Odds_Lower = exp(bayes_sum[,3]), Odds_Upper = exp(bayes_sum[,4]), Eff = bayes_sum[,5]),3)
+bayes_sum 
 ```
 Look at diagnostics
 ```{r}
-plot(bayes_logit_model)
+### Bayesian R^2
+launch_shinystan(bayes_logit_model)
+median(bayes_R2(bayes_logit_model))
+
 ```
+
 
