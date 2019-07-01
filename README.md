@@ -59,14 +59,18 @@ GPRAAll$Gender = ifelse(GPRAAll$Gender == 1, 1,0)
 GPRAAll$EducationYears = ifelse(GPRAAll$EducationYears > 11, 1, 0)
 GPRAAll$County = ifelse(GPRAAll$County == "Monroe", 1, 0)
 
-
+### Employment status
+#EmployStatus
+#1 = Employed Full Time (35+ hours per week, or would have been)2 = Employed Part Time 3 = Unemployed, looking for work4 = Unemployed, disabled5 = Unemployed, volunteer work6 = Unemployed, retired 7 = Unemployed, not looking for work0 = Other-7 = Refused-8 = Don't Know-9 =Missing Data
+describe.factor(GPRAAll$EmployStatus)
+part_full_employ = ifelse(GPRAAll$EmployStatus == 1, 1, ifelse(GPRAAll$EmployStatus == 2, 1, 0))
 #Then I am subsetting the data for only those at the time of analysis that are eligible for reassessment.  Because the reassessment takes place every 6 months and the date for this analysis was 8-1-2018 anyone who entered the program later than 2-1-2018 would not be eligible for reassessments so they are not included.  InterviewDate.x equals the intake or baseline date.
 
 describe.factor(GPRAAll$NrCrimes)
 describe.factor(GPRAAll$ArrestedDays)
 describe.factor(GPRAAll$ParoleProbation)
 
-ConnPaper = data.frame(ClientID = GPRAAll$ClientID, InterviewDate = GPRAAll$InterviewDate, LivingWhere = GPRAAll$LivingWhere,  HealthStatus = GPRAAll$HealthStatus, Age = GPRAAll$Age, EducationYears = GPRAAll$EducationYears, Gender = GPRAAll$Gender, DAUseIllegDrugsDays = GPRAAll$DAUseIllegDrugsDays, County = GPRAAll$County, ERPhysical = GPRAAll$ERPhysical, ERMental = GPRAAll$ERMental, ERAlcoholSA = GPRAAll$ERAlcoholSA, Ncrimes = GPRAAll$NrCrimes, ParoleProbation = GPRAAll$ParoleProbation, InpatientPhysical= GPRAAll$InpatientPhysical, InpatientMental = GPRAAll$InpatientMental, InpatientAlcoholSA = GPRAAll$InpatientAlcoholSA, OutpatientPhysical = GPRAAll$OutpatientPhysical, OutpatientMental = GPRAAll$OutpatientMental, OutpatientAlcoholSA = GPRAAll$OutpatientAlcoholSA, LivingWhere_follow = GPRAAll$LivingWhere_follow)
+ConnPaper = data.frame(ClientID = GPRAAll$ClientID, InterviewDate = GPRAAll$InterviewDate, LivingWhere = GPRAAll$LivingWhere,  HealthStatus = GPRAAll$HealthStatus, Age = GPRAAll$Age, EducationYears = GPRAAll$EducationYears, Gender = GPRAAll$Gender, DAUseIllegDrugsDays = GPRAAll$DAUseIllegDrugsDays, County = GPRAAll$County, ERPhysical = GPRAAll$ERPhysical, ERMental = GPRAAll$ERMental, ERAlcoholSA = GPRAAll$ERAlcoholSA, Ncrimes = GPRAAll$NrCrimes, ParoleProbation = GPRAAll$ParoleProbation, InpatientPhysical= GPRAAll$InpatientPhysical, InpatientMental = GPRAAll$InpatientMental, InpatientAlcoholSA = GPRAAll$InpatientAlcoholSA, OutpatientPhysical = GPRAAll$OutpatientPhysical, OutpatientMental = GPRAAll$OutpatientMental, OutpatientAlcoholSA = GPRAAll$OutpatientAlcoholSA, LivingWhere_follow = GPRAAll$LivingWhere_follow, part_full_employ = part_full_employ)
 
 
 dim(ConnPaper)
@@ -105,7 +109,7 @@ ConnPaper$Hospital = ifelse(ConnPaper$InpatientPhysical == 1, 1, ifelse(ConnPape
 describe.factor(ConnPaper$Hospital)
 
 
-Conn_Base = ConnPaper[c("LivingWhere_follow", "HealthStatus", "Age", "EducationYears", "Gender", "DAUseIllegDrugsDays", "County", "PHQ9Base", "ER_visit", "Ncrimes", "ParoleProbation", "Hospital")]
+Conn_Base = ConnPaper[c("LivingWhere_follow", "HealthStatus", "Age", "EducationYears", "Gender", "DAUseIllegDrugsDays", "County", "PHQ9Base", "ER_visit", "Ncrimes", "ParoleProbation", "Hospital", "part_full_employ")]
 describe.factor(Conn_Base$PHQ9Base)
 ```
 Just get the baseline
@@ -147,7 +151,6 @@ Look at diagnostics
 ### Bayesian R^2
 launch_shinystan(bayes_logit_model)
 median(bayes_R2(bayes_logit_model))
-
 ```
 
 
