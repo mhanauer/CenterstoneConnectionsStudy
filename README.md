@@ -21,6 +21,7 @@ library(ggplot2)
 library(HLMdiag)
 library(psych)
 library(MuMIn)
+library(foreign)
 ```
 Loading the data and reading it in
 Creating living where seperate to merge later from 6-month because I need to match the data and it is in wide form.
@@ -59,14 +60,18 @@ GPRAAll$Gender = ifelse(GPRAAll$Gender == 1, 1,0)
 GPRAAll$EducationYears = ifelse(GPRAAll$EducationYears > 11, 1, 0)
 GPRAAll$County = ifelse(GPRAAll$County == "Monroe", 1, 0)
 
-
+### Employment status
+#EmployStatus
+#1 = Employed Full Time (35+ hours per week, or would have been)2 = Employed Part Time 3 = Unemployed, looking for work4 = Unemployed, disabled5 = Unemployed, volunteer work6 = Unemployed, retired 7 = Unemployed, not looking for work0 = Other-7 = Refused-8 = Don't Know-9 =Missing Data
+describe.factor(GPRAAll$EmployStatus)
+part_full_employ = ifelse(GPRAAll$EmployStatus == 1, 1, ifelse(GPRAAll$EmployStatus == 2, 1, 0))
 #Then I am subsetting the data for only those at the time of analysis that are eligible for reassessment.  Because the reassessment takes place every 6 months and the date for this analysis was 8-1-2018 anyone who entered the program later than 2-1-2018 would not be eligible for reassessments so they are not included.  InterviewDate.x equals the intake or baseline date.
 
 describe.factor(GPRAAll$NrCrimes)
 describe.factor(GPRAAll$ArrestedDays)
 describe.factor(GPRAAll$ParoleProbation)
 
-ConnPaper = data.frame(ClientID = GPRAAll$ClientID, InterviewDate = GPRAAll$InterviewDate, LivingWhere = GPRAAll$LivingWhere,  HealthStatus = GPRAAll$HealthStatus, Age = GPRAAll$Age, EducationYears = GPRAAll$EducationYears, Gender = GPRAAll$Gender, DAUseIllegDrugsDays = GPRAAll$DAUseIllegDrugsDays, County = GPRAAll$County, ERPhysical = GPRAAll$ERPhysical, ERMental = GPRAAll$ERMental, ERAlcoholSA = GPRAAll$ERAlcoholSA, Ncrimes = GPRAAll$NrCrimes, ParoleProbation = GPRAAll$ParoleProbation, InpatientPhysical= GPRAAll$InpatientPhysical, InpatientMental = GPRAAll$InpatientMental, InpatientAlcoholSA = GPRAAll$InpatientAlcoholSA, OutpatientPhysical = GPRAAll$OutpatientPhysical, OutpatientMental = GPRAAll$OutpatientMental, OutpatientAlcoholSA = GPRAAll$OutpatientAlcoholSA, LivingWhere_follow = GPRAAll$LivingWhere_follow)
+ConnPaper = data.frame(ClientID = GPRAAll$ClientID, InterviewDate = GPRAAll$InterviewDate, LivingWhere = GPRAAll$LivingWhere,  HealthStatus = GPRAAll$HealthStatus, Age = GPRAAll$Age, EducationYears = GPRAAll$EducationYears, Gender = GPRAAll$Gender, DAUseIllegDrugsDays = GPRAAll$DAUseIllegDrugsDays, County = GPRAAll$County, ERPhysical = GPRAAll$ERPhysical, ERMental = GPRAAll$ERMental, ERAlcoholSA = GPRAAll$ERAlcoholSA, Ncrimes = GPRAAll$NrCrimes, ParoleProbation = GPRAAll$ParoleProbation, InpatientPhysical= GPRAAll$InpatientPhysical, InpatientMental = GPRAAll$InpatientMental, InpatientAlcoholSA = GPRAAll$InpatientAlcoholSA, OutpatientPhysical = GPRAAll$OutpatientPhysical, OutpatientMental = GPRAAll$OutpatientMental, OutpatientAlcoholSA = GPRAAll$OutpatientAlcoholSA, LivingWhere_follow = GPRAAll$LivingWhere_follow, part_full_employ = part_full_employ)
 
 
 dim(ConnPaper)
@@ -105,7 +110,7 @@ ConnPaper$Hospital = ifelse(ConnPaper$InpatientPhysical == 1, 1, ifelse(ConnPape
 describe.factor(ConnPaper$Hospital)
 
 
-Conn_Base = ConnPaper[c("LivingWhere_follow", "HealthStatus", "Age", "EducationYears", "Gender", "DAUseIllegDrugsDays", "County", "PHQ9Base", "ER_visit", "Ncrimes", "ParoleProbation", "Hospital")]
+Conn_Base = ConnPaper[c("LivingWhere_follow", "HealthStatus", "Age", "EducationYears", "Gender", "DAUseIllegDrugsDays", "County", "PHQ9Base", "ER_visit", "Ncrimes", "ParoleProbation", "Hospital", "part_full_employ")]
 describe.factor(Conn_Base$PHQ9Base)
 ```
 Just get the baseline
@@ -137,7 +142,7 @@ Now run the model
 library(MCMCpack)
 library(rstanarm)
 head(Conn_Base_complete)
-bayes_logit_model = stan_glm(LivingWhere_follow~ ., data = Conn_Base_complete)
+bayes_logit_model = stan_glm(LivingWhere_follow~ ., data = Conn_Base_complete, family = binomial (link = "logit"))
 bayes_sum =round(bayes_logit_model$stan_summary[,c(1,3,4,10, 11)],4)
 bayes_sum = round(data.frame(bayes_sum[,1:2], odd_ratio = exp(bayes_sum[,1]), Odds_Lower = exp(bayes_sum[,3]), Odds_Upper = exp(bayes_sum[,4]), Eff = bayes_sum[,5]),3)
 bayes_sum 
@@ -147,7 +152,164 @@ Look at diagnostics
 ### Bayesian R^2
 launch_shinystan(bayes_logit_model)
 median(bayes_R2(bayes_logit_model))
+```
+Test interactions
+```{r}
+library(rstanarm)
+
+### Health status
+bayes_logit_model = stan_glm(LivingWhere_follow~ HealthStatus*DAUseIllegDrugsDays + Age + EducationYears + Gender + County + DAUseIllegDrugsDays + PHQ9Base + ER_visit + Ncrimes + ParoleProbation + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ HealthStatus*PHQ9Base + DAUseIllegDrugsDays + Age + EducationYears + Gender + County + PHQ9Base + ER_visit + Ncrimes + ParoleProbation + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ HealthStatus*ER_visit + PHQ9Base + DAUseIllegDrugsDays + Age + EducationYears + Gender + County  + Ncrimes + ParoleProbation + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ HealthStatus*Ncrimes + ER_visit + PHQ9Base + DAUseIllegDrugsDays + Age + EducationYears + Gender + County + ParoleProbation + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ HealthStatus*Ncrimes + ER_visit + PHQ9Base + DAUseIllegDrugsDays + Age + EducationYears + Gender + County + ParoleProbation + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ HealthStatus*ParoleProbation + Ncrimes + ER_visit + PHQ9Base + DAUseIllegDrugsDays + Age + EducationYears + Gender + County +  + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ HealthStatus*Hospital + ParoleProbation + Ncrimes + ER_visit + PHQ9Base + DAUseIllegDrugsDays + Age + EducationYears + Gender + County + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ HealthStatus*part_full_employ + Hospital + ParoleProbation + Ncrimes + ER_visit + PHQ9Base + DAUseIllegDrugsDays + Age + EducationYears + Gender + County , data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+## AGe
+bayes_logit_model = stan_glm(LivingWhere_follow~ Age*DAUseIllegDrugsDays + HealthStatus + EducationYears + Gender + County + DAUseIllegDrugsDays + PHQ9Base + ER_visit + Ncrimes + ParoleProbation + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ Age*PHQ9Base + DAUseIllegDrugsDays + HealthStatus + EducationYears + Gender + County + PHQ9Base + ER_visit + Ncrimes + ParoleProbation + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ Age*ER_visit + PHQ9Base + DAUseIllegDrugsDays + HealthStatus + EducationYears + Gender + County  + Ncrimes + ParoleProbation + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ Age*Ncrimes + ER_visit + PHQ9Base + DAUseIllegDrugsDays + HealthStatus + EducationYears + Gender + County + ParoleProbation + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ Age*Ncrimes + ER_visit + PHQ9Base + DAUseIllegDrugsDays + HealthStatus + EducationYears + Gender + County + ParoleProbation + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ Age*ParoleProbation + Ncrimes + ER_visit + PHQ9Base + DAUseIllegDrugsDays + HealthStatus + EducationYears + Gender + County +  + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ Age*Hospital + ParoleProbation + Ncrimes + ER_visit + PHQ9Base + DAUseIllegDrugsDays + HealthStatus + EducationYears + Gender + County + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ Age*part_full_employ + Hospital + ParoleProbation + Ncrimes + ER_visit + PHQ9Base + DAUseIllegDrugsDays + HealthStatus + EducationYears + Gender + County , data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+### Edu
+bayes_logit_model = stan_glm(LivingWhere_follow~ EducationYears*DAUseIllegDrugsDays + HealthStatus + Age+ Gender + County + DAUseIllegDrugsDays + PHQ9Base + ER_visit + Ncrimes + ParoleProbation + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ EducationYears*PHQ9Base + DAUseIllegDrugsDays + HealthStatus + Age+ Gender + County + PHQ9Base + ER_visit + Ncrimes + ParoleProbation + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ EducationYears*ER_visit + PHQ9Base + DAUseIllegDrugsDays + HealthStatus + Age+ Gender + County  + Ncrimes + ParoleProbation + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ EducationYears*Ncrimes + ER_visit + PHQ9Base + DAUseIllegDrugsDays + HealthStatus + Age+ Gender + County + ParoleProbation + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ EducationYears*Ncrimes + ER_visit + PHQ9Base + DAUseIllegDrugsDays + HealthStatus + Age+ Gender + County + ParoleProbation + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ EducationYears*ParoleProbation + Ncrimes + ER_visit + PHQ9Base + DAUseIllegDrugsDays + HealthStatus + Age+ Gender + County +  + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ EducationYears*Hospital + ParoleProbation + Ncrimes + ER_visit + PHQ9Base + DAUseIllegDrugsDays + HealthStatus + Age+ Gender + County + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ EducationYears*part_full_employ + Hospital + ParoleProbation + Ncrimes + ER_visit + PHQ9Base + DAUseIllegDrugsDays + HealthStatus + Age+ Gender + County , data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+## Gender
+bayes_logit_model = stan_glm(LivingWhere_follow~ Gender*DAUseIllegDrugsDays + HealthStatus + Age+ EducationYears+ County + DAUseIllegDrugsDays + PHQ9Base + ER_visit + Ncrimes + ParoleProbation + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ Gender*PHQ9Base + DAUseIllegDrugsDays + HealthStatus + Age+ EducationYears+ County + PHQ9Base + ER_visit + Ncrimes + ParoleProbation + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ Gender*ER_visit + PHQ9Base + DAUseIllegDrugsDays + HealthStatus + Age+ EducationYears+ County  + Ncrimes + ParoleProbation + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ Gender*Ncrimes + ER_visit + PHQ9Base + DAUseIllegDrugsDays + HealthStatus + Age+ EducationYears+ County + ParoleProbation + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ Gender*Ncrimes + ER_visit + PHQ9Base + DAUseIllegDrugsDays + HealthStatus + Age+ EducationYears+ County + ParoleProbation + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ Gender*ParoleProbation + Ncrimes + ER_visit + PHQ9Base + DAUseIllegDrugsDays + HealthStatus + Age+ EducationYears+ County +  + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ Gender*Hospital + ParoleProbation + Ncrimes + ER_visit + PHQ9Base + DAUseIllegDrugsDays + HealthStatus + Age+ EducationYears+ County + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ Gender*part_full_employ + Hospital + ParoleProbation + Ncrimes + ER_visit + PHQ9Base + DAUseIllegDrugsDays + HealthStatus + Age+ EducationYears+ County , data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+### County
+bayes_logit_model = stan_glm(LivingWhere_follow~ County*DAUseIllegDrugsDays + HealthStatus + Age+ EducationYears+ Gender+ DAUseIllegDrugsDays + PHQ9Base + ER_visit + Ncrimes + ParoleProbation + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ County*PHQ9Base + DAUseIllegDrugsDays + HealthStatus + Age+ EducationYears+ Gender+ PHQ9Base + ER_visit + Ncrimes + ParoleProbation + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ County*ER_visit + PHQ9Base + DAUseIllegDrugsDays + HealthStatus + Age+ EducationYears+ Gender + Ncrimes + ParoleProbation + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ County*Ncrimes + ER_visit + PHQ9Base + DAUseIllegDrugsDays + HealthStatus + Age+ EducationYears+ Gender+ ParoleProbation + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ County*Ncrimes + ER_visit + PHQ9Base + DAUseIllegDrugsDays + HealthStatus + Age+ EducationYears+ Gender+ ParoleProbation + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ County*ParoleProbation + Ncrimes + ER_visit + PHQ9Base + DAUseIllegDrugsDays + HealthStatus + Age+ EducationYears+ Gender+  + Hospital + part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ County*Hospital + ParoleProbation + Ncrimes + ER_visit + PHQ9Base + DAUseIllegDrugsDays + HealthStatus + Age+ EducationYears+ Gender+ part_full_employ, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
+
+bayes_logit_model = stan_glm(LivingWhere_follow~ County*part_full_employ + Hospital + ParoleProbation + Ncrimes + ER_visit + PHQ9Base + DAUseIllegDrugsDays + HealthStatus + Age+ EducationYears+ Gender, data = Conn_Base_complete)
+summary(bayes_logit_model)
+
 
 ```
+
 
 
