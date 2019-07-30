@@ -142,6 +142,7 @@ Now run the model
 library(MCMCpack)
 library(rstanarm)
 head(Conn_Base_complete)
+Conn_Base_complete$part_full_employ = NULL
 bayes_logit_model = stan_glm(LivingWhere_follow~ ., data = Conn_Base_complete, family = binomial (link = "logit"))
 bayes_sum =round(bayes_logit_model$stan_summary[,c(1,3,4,10, 11)],4)
 bayes_sum = round(data.frame(bayes_sum[,1:2], odd_ratio = exp(bayes_sum[,1]), Odds_Lower = exp(bayes_sum[,3]), Odds_Upper = exp(bayes_sum[,4]), Eff = bayes_sum[,5]),3)
