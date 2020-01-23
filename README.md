@@ -16,12 +16,8 @@ library(foreign)
 library(lme4)
 library(sjstats)
 library(MissMech)
-library(BaylorEdPsych)
 library(ggplot2)
-library(HLMdiag)
 library(psych)
-library(MuMIn)
-library(foreign)
 ```
 Loading the data and reading it in
 Creating living where seperate to merge later from 6-month because I need to match the data and it is in wide form.
@@ -102,15 +98,22 @@ sum(is.na(ConnPaper$LivingWhere_follow))
 describe.factor(ConnPaper$ERPhysical)
 describe.factor(ConnPaper$ERMental)
 describe.factor(ConnPaper$PHQ9Base)
-ConnPaper$ER_visit = ifelse(ConnPaper$ERPhysical == 1, 1, ifelse(ConnPaper$ERMental == 1, 1,ifelse(ConnPaper$ERAlcoholSA == 1,1,0)))
+
+
 describe.factor(ConnPaper$ER_visit)
 
-## Combine the hosptial
-ConnPaper$Hospital = ifelse(ConnPaper$InpatientPhysical == 1, 1, ifelse(ConnPaper$InpatientMental == 1,1, ifelse(ConnPaper$InpatientAlcoholSA == 1, 1, ifelse(ConnPaper$OutpatientPhysical== 1, 1, ifelse(ConnPaper$OutpatientMental ==1,1, ifelse(ConnPaper$OutpatientAlcoholSA  == 1, 1, 0))))))
-describe.factor(ConnPaper$Hospital)
 
 
-Conn_Base = ConnPaper[c("LivingWhere_follow", "HealthStatus", "Age", "EducationYears", "Gender", "DAUseIllegDrugsDays", "County", "PHQ9Base", "ER_visit", "Ncrimes", "ParoleProbation", "Hospital", "part_full_employ")]
+
+ConnPaper$acute = ifelse(ConnPaper$InpatientPhysical == 1, 1, ifelse(ConnPaper$InpatientMental == 1,1, ifelse(ConnPaper$InpatientAlcoholSA == 1, 1,ifelse(ConnPaper$ERPhysical == 1, 1, ifelse(ConnPaper$ERMental == 1, 1,ifelse(ConnPaper$ERAlcoholSA == 1,1,0))))))
+describe.factor(ConnPaper$acute)
+
+ConnPaper$Hospital_out = ifelse(ConnPaper$OutpatientPhysical== 1, 1, ifelse(ConnPaper$OutpatientMental ==1,1, ifelse(ConnPaper$OutpatientAlcoholSA  == 1, 1,0)))
+describe.factor(ConnPaper$Hospital_out)
+
+head(ConnPaper)
+
+Conn_Base = ConnPaper[c("LivingWhere_follow", "HealthStatus", "Age", "EducationYears", "Gender", "DAUseIllegDrugsDays", "County", "PHQ9Base", "Ncrimes", "ParoleProbation", "acute", "Hospital_out", "part_full_employ")]
 describe.factor(Conn_Base$PHQ9Base)
 ```
 Just get the baseline
@@ -122,7 +125,7 @@ Conn_Base = data.frame(Conn_Base)
 write.csv(Conn_Base, "Conn_Base.csv", row.names = FALSE)
 Conn_Base = read.csv("Conn_Base.csv", header = TRUE)
 
-TestMCARNormality(Conn_Base)
+#TestMCARNormality(Conn_Base)
 Conn_Base_complete = na.omit(Conn_Base)
 dim(Conn_Base_complete)
 1-(dim(Conn_Base_complete)[1] /dim(Conn_Base)[1])  
@@ -135,11 +138,12 @@ describe.factor(Conn_Base_complete$LivingWhere_follow)
 describe.factor(Conn_Base_complete$EducationYears)
 describe.factor(Conn_Base_complete$County)
 describe.factor(Conn_Base_complete$ER_visit)
-describe.factor(Conn_Base_complete$Hospital)
+#describe.factor(Conn_Base_complete$Hospital)
+
+
 ```
 Now run the model
 ```{r}
-library(MCMCpack)
 library(rstanarm)
 head(Conn_Base_complete)
 Conn_Base_complete$part_full_employ = NULL
